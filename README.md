@@ -27,8 +27,13 @@ Execute the scripts in the following order:
    ```bash
    python 3_inference.py
    ```
-
 After running the inference script, the results will be saved in a file named `Predicted_SNPs.txt`.
+   
+4. **Run baseline model(without transfer) learning and inference**:
+   ```bash
+   python 4_baseline_learning_inference.py
+   ```
+After running the 4_baseline_learning_inference, the results will be saved in a file named `Predicted_SNPs_Baseline.txt`.
 
 ## Note on Example Data
 The example data used in these scripts is limited to SNPs from chromosome 6. This is intended for demonstration purposes, and the results do not represent the model's full performance as described in the research paper.
