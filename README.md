@@ -2,7 +2,7 @@
 # InsightGWAS: Transformer-Based Model for GWAS Analysis
 
 ## Overview
-![Image text](c6e817ae02a7731e5f5bd141c218370.png)
+![Image text](Fig1.png)
 InsightGWAS is a Transformer-based deep learning framework designed to prioritize genetic variants associated with complex diseases using **genome-wide association studies (GWAS) summary statistics** and **multi-modal genomic annotations**.
 
  **MDD-MA Transformer Model**: Pre-trained on Major Depressive Disorder (MDD) GWAS data and fine-tuned on Migraine (MA) data.
