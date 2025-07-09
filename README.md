@@ -105,7 +105,7 @@ After running the 4_baseline_learning_inference, the results will be saved in a 
 ## Note on Example Data
 The example data used in these scripts is limited to SNPs from chromosome 6. This is intended for demonstration purposes, and the results do not represent the model's full performance as described in the research paper.
 
-## 🧠 Models from the Study
+## Models from the Study
 
 We have included the exact pretrained models used in our paper:
 
