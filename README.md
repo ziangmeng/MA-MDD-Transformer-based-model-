@@ -110,7 +110,7 @@ The example data used in these scripts is limited to SNPs from chromosome 6. Thi
 We have included the exact pretrained models used in our paper:
 
 - `model/transformer_model_mdd.pth`: The model trained on MDD GWAS data.
-- `tmodel/ransformer_model_finetuned.pth`: The model after transfer learning on MA GWAS data.
+- `model/ransformer_model_finetuned.pth`: The model after transfer learning on MA GWAS data.
 
 These model checkpoints correspond to the final models evaluated and reported in the manuscript, and are provided to ensure full reproducibility of our results.
 
