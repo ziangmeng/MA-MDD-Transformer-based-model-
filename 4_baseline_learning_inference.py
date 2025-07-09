@@ -3,9 +3,26 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from sklearn.preprocessing import StandardScaler
-import numpy as np
 import pandas as pd
+import argparse
 import os
+
+# ============ Argument Parser ============
+parser = argparse.ArgumentParser(description='Train baseline Transformer model and perform inference (no pretraining)')
+
+parser.add_argument('--train_data_path', type=str, default='data/Train_Data_MA.txt', help='Path to MA training data')
+parser.add_argument('--inference_data_path', type=str, default='data/Inference_Data_MA.txt', help='Path to MA inference data')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
+parser.add_argument('--num_epochs', type=int, default=20, help='Number of training epochs')
+parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
+parser.add_argument('--num_heads', type=int, default=4, help='Number of attention heads')
+parser.add_argument('--num_layers', type=int, default=2, help='Number of Transformer encoder layers')
+parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of feedforward layer')
+parser.add_argument('--threshold', type=float, default=0.999, help='Threshold for inference classification')
+parser.add_argument('--model_path', type=str, default='model/MA_baseline.pth', help='Path to save trained baseline model')
+parser.add_argument('--output_file', type=str, default='Predicted_SNPs_Baseline.txt', help='Path to save inference results')
+
+args = parser.parse_args()
 
 # ============ Define Transformer Classifier ============
 class TransformerClassifier(nn.Module):
@@ -21,26 +38,26 @@ class TransformerClassifier(nn.Module):
 
     def forward(self, x):
         x = self.input_mapping(x)
-        x = x.permute(1, 0, 2)  # [seq_len, batch_size, feature_dim]
+        x = x.permute(1, 0, 2)
         x = self.transformer(x)
-        x = x[0, :, :]  # Use the first token's output
+        x = x[0, :, :]
         x = self.fc(x)
         x = self.sigmoid(x)
         return x
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 # ============ Load and Prepare Training Data ============
-train_data_path = 'data/Train_Data_MA.txt'
-df = pd.read_csv(train_data_path, sep='\t')
+df = pd.read_csv(args.train_data_path, sep='\t')
 
 feature_cols = ['chr', 'bpos', '2016_beta', '2016_se', '2016_pval', '2016_n',
                 'sqtl', 'sc-eqtl', 'brain_eQTL', 'all_eQTL', 'mQTL',
                 'OCRs_brain', 'OCRs_adult', 'footprints', 'encode',
                 'targetScanS.wgRna', 'tfbsConsSites', 'genomicSuperDups',
                 'reported in previous GWAS', 'ldscore', 'freq', 'ALL_pred']
-label_col = 'label'
 
 X = df[feature_cols]
-y = df[label_col]
+y = df['label']
 
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
@@ -53,21 +70,20 @@ train_size = int(0.8 * len(dataset))
 val_size = len(dataset) - train_size
 train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-# ============ Initialize Baseline Model (no pretraining) ============
-model = TransformerClassifier(input_dim=X.shape[1], num_heads=4, num_layers=2, hidden_dim=64).to(device)
+# ============ Initialize and Train Model ============
+model = TransformerClassifier(input_dim=X.shape[1],
+                              num_heads=args.num_heads,
+                              num_layers=args.num_layers,
+                              hidden_dim=args.hidden_dim).to(device)
 
 criterion = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-# ============ Train the Baseline Model ============
 print("Training baseline model (no pretraining)...")
-num_epochs = 20
-for epoch in range(num_epochs):
+for epoch in range(args.num_epochs):
     model.train()
     total_loss = 0
     for X_batch, y_batch in train_loader:
@@ -91,42 +107,34 @@ for epoch in range(num_epochs):
             correct += (predicted == y_val).sum().item()
 
     accuracy = 100 * correct / total
-    print(f"Epoch {epoch+1}/{num_epochs} | Loss: {total_loss/len(train_loader):.4f} | Val Accuracy: {accuracy:.2f}%")
+    print(f"Epoch {epoch+1}/{args.num_epochs} | Loss: {total_loss/len(train_loader):.4f} | Val Accuracy: {accuracy:.2f}%")
 
-# ============ Save the Trained Baseline Model ============
-os.makedirs('model', exist_ok=True)
-model_path = 'model/MA_baseline.pth'
-torch.save(model.state_dict(), model_path)
-print(f"Baseline model saved to: {model_path}")
+# ============ Save the Model ============
+os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
+torch.save(model.state_dict(), args.model_path)
+print(f"Baseline model saved to: {args.model_path}")
 
-# ============ Load Inference Data and Run Predictions ============
+# ============ Load Inference Data and Predict ============
 print("Running inference...")
-
-inference_path = 'data/Inference_Data_MA.txt'
-df_inf = pd.read_csv(inference_path, sep='\t')
-
+df_inf = pd.read_csv(args.inference_data_path, sep='\t')
 inference_features = df_inf[['chr', 'bpos', '2020_beta', '2020_se', '2020_pval', '2020_n',
                              'sqtl', 'sc-eqtl', 'brain_eQTL', 'all_eQTL', 'mQTL',
                              'OCRs_brain', 'OCRs_adult', 'footprints', 'encode',
                              'targetScanS.wgRna', 'tfbsConsSites', 'genomicSuperDups',
                              'reported in previous GWAS', 'ldscore', 'freq', 'ALL_pred']]
 
-# Normalize inference features (assuming independent standardization)
 scaler_inf = StandardScaler()
 X_inf_scaled = scaler_inf.fit_transform(inference_features)
 X_inf_tensor = torch.tensor(X_inf_scaled, dtype=torch.float32).to(device)
 
-# Load the trained model and predict
 model.eval()
 with torch.no_grad():
     outputs = model(X_inf_tensor.unsqueeze(1))
-    predictions = (outputs > 0.999).float().cpu().numpy()
+    predictions = (outputs > args.threshold).float().cpu().numpy()
 
-# Extract predicted SNPs
 predicted_snps = df_inf.loc[predictions.flatten() == 1, ['snp', 'chr', 'bpos', '2020_pval']]
 predicted_snps.rename(columns={'2020_pval': 'pval'}, inplace=True)
 
-# Save prediction results
-output_file = 'Predicted_SNPs_Baseline.txt'
-predicted_snps.to_csv(output_file, sep='\t', index=False)
-print(f"Inference results saved to: {output_file}")
+os.makedirs(os.path.dirname(args.output_file), exist_ok=True) if os.path.dirname(args.output_file) else None
+predicted_snps.to_csv(args.output_file, sep='\t', index=False)
+print(f"Inference results saved to: {args.output_file}")

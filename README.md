@@ -18,27 +18,87 @@ Make sure you have the following Python libraries installed:
 
 ## Running the Scripts
 Execute the scripts in the following order:
-
+> ⚠️ **Important:** The model architecture parameters (`--num_heads`, `--num_layers`, `--hidden_dim`) **must be the same** as those used during training (`1_train_model.py`) ,transfer learning (`2_transform_learning_model.py`)and inference(`3_inference.py`), otherwise the model will fail to load or behave inconsistently.
 1. **Train the initial model on MDD data**:
+| Argument        | Description                                                    | Default                   |
+| --------------- | -------------------------------------------------------------- | ------------------------- |
+| `--data_path`   | Path to the input training dataset (tab-separated `.txt` file) | `data/Train_Data_MDD.txt` |
+| `--batch_size`  | Batch size for training                                        | `32`                      |
+| `--num_epochs`  | Number of training epochs                                      | `30`                      |
+| `--lr`          | Learning rate for the optimizer                                | `0.001`                   |
+| `--num_heads`   | Number of attention heads in the Transformer encoder           | `4`                       |
+| `--num_layers`  | Number of Transformer encoder layers                           | `2`                       |
+| `--hidden_dim`  | Hidden dimension in the feed-forward layers                    | `64`                      |
+| `--output_path` | Path to save the trained model checkpoint                      | `model/MDD_model.pth`     |
+
+### 🧪 Example Usage
    ```bash
-   python 1_train_model.py
+python train.py 
    ```
 
 2. **Perform transfer learning using MA data**:
-   ```bash
-   python 2_transform_learning_model.py
-   ```
 
+### ⚙️ Command-line Options
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--data_path` | Path to MA training data | `data/Train_Data_MA.txt` |
+| `--pretrained_model_path` | Path to the pre-trained MDD model | `model/MDD_model.pth` |
+| `--batch_size` | Batch size for training | `32` |
+| `--num_epochs` | Number of training epochs | `20` |
+| `--lr` | Learning rate for fine-tuning | `0.0001` |
+| `--num_heads` | Number of attention heads in Transformer | `4` |
+| `--num_layers` | Number of Transformer encoder layers | `2` |
+| `--hidden_dim` | Dimension of feedforward network in Transformer | `64` |
+| `--output_path` | Path to save the fine-tuned model | `model/MA_transform_learning.pth` |
+
+### 🧪 Example Usage
+
+```bash
+python 2_transform_learning_model.py \
+```
 3. **Run inference**:
-   ```bash
-   python 3_inference.py
-   ```
+### ⚙️ Command-line Options
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--inference_data_path` | Path to the input MA inference dataset | `data/Inference_Data_MA.txt` |
+| `--model_path` | Path to the fine-tuned model checkpoint | `model/MA_transform_learning.pth` |
+| `--output_path` | File to save predicted SNPs | `Predicted_SNPs.txt` |
+| `--threshold` | Classification threshold (between 0 and 1) | `0.999` |
+| `--num_heads` | Number of Transformer heads (must match training) | `4` |
+| `--num_layers` | Number of Transformer layers (must match training) | `2` |
+| `--hidden_dim` | Transformer feedforward hidden dimension (must match training) | `64` |
+
+### 🧪 Example Usage
+
+```bash
+python 3_inference.py
+```
 After running the inference script, the results will be saved in a file named `Predicted_SNPs.txt`.
    
 4. **Run baseline model(without transfer) learning and inference**:
-   ```bash
-   python 4_baseline_learning_inference.py
-   ```
+### ⚙️ Command-line Options
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `--train_data_path` | Path to MA training dataset | `data/Train_Data_MA.txt` |
+| `--inference_data_path` | Path to MA inference dataset | `data/Inference_Data_MA.txt` |
+| `--batch_size` | Batch size | `32` |
+| `--num_epochs` | Training epochs | `20` |
+| `--lr` | Learning rate | `0.0001` |
+| `--num_heads` | Transformer attention heads | `4` |
+| `--num_layers` | Transformer encoder layers | `2` |
+| `--hidden_dim` | Feedforward hidden dimension | `64` |
+| `--threshold` | Prediction threshold | `0.999` |
+| `--model_path` | Output path for trained model | `model/MA_baseline.pth` |
+| `--output_file` | Path to save predicted SNPs | `Predicted_SNPs_Baseline.txt` |
+
+### 🧪 Example Usage
+
+```bash
+python baseline_train_and_infer.py 
+```
 After running the 4_baseline_learning_inference, the results will be saved in a file named `Predicted_SNPs_Baseline.txt`.
 
 ## Note on Example Data

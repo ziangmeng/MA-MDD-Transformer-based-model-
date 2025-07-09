@@ -3,8 +3,26 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from sklearn.preprocessing import StandardScaler
-import numpy as np
 import pandas as pd
+import argparse
+import os
+
+# -------------------- Argument Parser --------------------
+parser = argparse.ArgumentParser(description='Transfer learning using pre-trained Transformer model')
+
+parser.add_argument('--data_path', type=str, default='data/Train_Data_MA.txt', help='Path to MA training data')
+parser.add_argument('--pretrained_model_path', type=str, default='model/MDD_model.pth', help='Path to pre-trained MDD model')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
+parser.add_argument('--num_epochs', type=int, default=20, help='Number of training epochs')
+parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate for fine-tuning')
+parser.add_argument('--num_heads', type=int, default=4, help='Number of attention heads')
+parser.add_argument('--num_layers', type=int, default=2, help='Number of Transformer layers')
+parser.add_argument('--hidden_dim', type=int, default=64, help='Feedforward hidden dimension in Transformer')
+parser.add_argument('--output_path', type=str, default='model/MA_transform_learning.pth', help='Path to save fine-tuned model')
+
+args = parser.parse_args()
+
+# -------------------- Transformer Model --------------------
 class TransformerClassifier(nn.Module):
     def __init__(self, input_dim, num_heads, num_layers, hidden_dim, output_dim=1):
         super(TransformerClassifier, self).__init__()
@@ -18,67 +36,65 @@ class TransformerClassifier(nn.Module):
 
     def forward(self, x):
         x = self.input_mapping(x)
-        x = x.permute(1, 0, 2)  # Convert dimensions to (seq_len, batch_size, input_dim)
+        x = x.permute(1, 0, 2)
         x = self.transformer(x)
-        x = x[0, :, :]  # Select the output of the first token
+        x = x[0, :, :]
         x = self.fc(x)
         x = self.sigmoid(x)
         return x
 
-data_path = 'data/Train_Data_MA.txt'
-final_training_set_data = pd.read_csv(data_path, sep='\t')
-features_data = final_training_set_data[['chr', 'bpos', '2016_beta', '2016_se', '2016_pval', '2016_n', 
-                                         'sqtl', 'sc-eqtl', 'brain_eQTL', 'all_eQTL', 'mQTL', 
-                                         'OCRs_brain', 'OCRs_adult', 'footprints', 'encode',
-                                         'targetScanS.wgRna', 'tfbsConsSites', 'genomicSuperDups', 
-                                         'reported in previous GWAS', 'ldscore', 'freq', 'ALL_pred']]
-labels_data = final_training_set_data['label']
+# -------------------- Load and Preprocess Data --------------------
+df = pd.read_csv(args.data_path, sep='\t')
 
-# Standardize features
-scaler_data = StandardScaler()
-features_scaled_data = scaler_data.fit_transform(features_data)
+feature_cols = ['chr', 'bpos', '2016_beta', '2016_se', '2016_pval', '2016_n',
+                'sqtl', 'sc-eqtl', 'brain_eQTL', 'all_eQTL', 'mQTL',
+                'OCRs_brain', 'OCRs_adult', 'footprints', 'encode',
+                'targetScanS.wgRna', 'tfbsConsSites', 'genomicSuperDups',
+                'reported in previous GWAS', 'ldscore', 'freq', 'ALL_pred']
 
-# Convert to tensors
-X_tensor_data = torch.tensor(features_scaled_data, dtype=torch.float32)
-y_tensor_data = torch.tensor(labels_data.values, dtype=torch.float32).view(-1, 1)
+features = df[feature_cols]
+labels = df['label']
 
-# Use DataLoader
-dataset_data = TensorDataset(X_tensor_data, y_tensor_data)
+scaler = StandardScaler()
+features_scaled = scaler.fit_transform(features)
 
-# Split dataset into training and validation sets
-train_size_data = int(0.8 * len(dataset_data))
-val_size_data = len(dataset_data) - train_size_data
-train_dataset_data, val_dataset_data = random_split(dataset_data, [train_size_data, val_size_data])
+X_tensor = torch.tensor(features_scaled, dtype=torch.float32)
+y_tensor = torch.tensor(labels.values, dtype=torch.float32).view(-1, 1)
 
-train_loader_data = DataLoader(train_dataset_data, batch_size=32, shuffle=True)
-val_loader_data = DataLoader(val_dataset_data, batch_size=32, shuffle=False)
+dataset = TensorDataset(X_tensor, y_tensor)
+train_size = int(0.8 * len(dataset))
+val_size = len(dataset) - train_size
+train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
-# Load pre-trained model
-model = TransformerClassifier(input_dim=features_scaled_data.shape[1], num_heads=4, num_layers=2, hidden_dim=64)
-model.load_state_dict(torch.load('model/MDD_model.pth'))
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+
+# -------------------- Load Pretrained Model --------------------
+model = TransformerClassifier(
+    input_dim=features.shape[1],
+    num_heads=args.num_heads,
+    num_layers=args.num_layers,
+    hidden_dim=args.hidden_dim
+)
+
+model.load_state_dict(torch.load(args.pretrained_model_path))
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = model.to(device)
 
-# Define loss function and optimizer
+# -------------------- Training --------------------
 criterion = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)  # Smaller learning rate for transfer learning
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-# Train the model with transfer learning
-num_epochs = 20
-
-for epoch in range(num_epochs):
+for epoch in range(args.num_epochs):
     model.train()
     running_loss = 0.0
-
-    for X_batch, y_batch in train_loader_data:
+    for X_batch, y_batch in train_loader:
         X_batch, y_batch = X_batch.to(device), y_batch.to(device)
-
         optimizer.zero_grad()
-        outputs = model(X_batch.unsqueeze(1))  # Add an extra dimension for Transformer input
+        outputs = model(X_batch.unsqueeze(1))
         loss = criterion(outputs, y_batch)
         loss.backward()
         optimizer.step()
-
         running_loss += loss.item()
 
     # Validation
@@ -86,30 +102,26 @@ for epoch in range(num_epochs):
     val_loss = 0.0
     correct = 0
     total = 0
-
     with torch.no_grad():
-        for X_val, y_val in val_loader_data:
+        for X_val, y_val in val_loader:
             X_val, y_val = X_val.to(device), y_val.to(device)
             outputs = model(X_val.unsqueeze(1))
             loss = criterion(outputs, y_val)
             val_loss += loss.item()
-
             predicted = (outputs > 0.9).float()
             total += y_val.size(0)
             correct += (predicted == y_val).sum().item()
 
     accuracy = 100 * correct / total
+    print(f"Epoch {epoch+1}/{args.num_epochs}, Loss: {running_loss/len(train_loader):.4f}, "
+          f"Val Loss: {val_loss/len(val_loader):.4f}, Accuracy: {accuracy:.2f}%")
 
-    print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader_data)}, "
-          f"Val Loss: {val_loss/len(val_loader_data)}, Accuracy: {accuracy}%")
-
-# Evaluate the model
+# -------------------- Final Evaluation --------------------
 model.eval()
 correct = 0
 total = 0
-
 with torch.no_grad():
-    for X_val, y_val in val_loader_data:
+    for X_val, y_val in val_loader:
         X_val, y_val = X_val.to(device), y_val.to(device)
         outputs = model(X_val.unsqueeze(1))
         predicted = (outputs > 0.9).float()
@@ -117,9 +129,9 @@ with torch.no_grad():
         correct += (predicted == y_val).sum().item()
 
 accuracy = 100 * correct / total
-print(f"Final Accuracy on Validation Set: {accuracy}%")
+print(f"Final Accuracy on Validation Set: {accuracy:.2f}%")
 
-# Save the fine-tuned model
-model_save_path = 'model/MA_transform_learning.pth'
-torch.save(model.state_dict(), model_save_path)
-print(f"Model saved to {model_save_path}")
+# -------------------- Save Model --------------------
+os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
+torch.save(model.state_dict(), args.output_path)
+print(f"Model saved to {args.output_path}")
