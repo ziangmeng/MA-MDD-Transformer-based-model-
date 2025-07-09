@@ -19,9 +19,10 @@ Make sure you have the following Python libraries installed:
 ## Running the Scripts
 Execute the scripts in the following order:
 > ⚠️ **Important:** The model architecture parameters (`--num_heads`, `--num_layers`, `--hidden_dim`) **must be the same** as those used during training (`1_train_model.py`) ,transfer learning (`2_transform_learning_model.py`)and inference(`3_inference.py`), otherwise the model will fail to load or behave inconsistently.
-1. **Train the initial model on MDD data**:
+1. **Train the initial model on MDD data**
+
 | Argument        | Description                                                    | Default                   |
-| --------------- | -------------------------------------------------------------- | ------------------------- |
+|-----------------|----------------------------------------------------------------|---------------------------|
 | `--data_path`   | Path to the input training dataset (tab-separated `.txt` file) | `data/Train_Data_MDD.txt` |
 | `--batch_size`  | Batch size for training                                        | `32`                      |
 | `--num_epochs`  | Number of training epochs                                      | `30`                      |
