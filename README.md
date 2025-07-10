@@ -120,7 +120,7 @@ The input features for each SNP variant include **GWAS statistics** and **functi
 
 | Feature Category         | Description |
 |--------------------------|-------------|
-| **Genomic Position**     | `chr`, `bpos` (chromosome and base position) |
+| **Genomic Position**     | `chr`, `bpos`|
 | **GWAS Summary Stats**   | `beta`, `se`, `p-value`, `sample size (N)` |
 | **Regulatory Annotations** | `sQTL`, `eQTL`, `brain eQTL`, `all eQTL`, `mQTL` |
 | **Chromatin Features**    | `OCRs (open chromatin regions)`, `encode`, `footprints` |
