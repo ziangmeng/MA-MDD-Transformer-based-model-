@@ -151,3 +151,9 @@ The following preprocessing steps are applied to input data:
 2. **Train-Test Split**: Data is randomly split into **80% training and 20% validation**.
 3. **Data Loading**: Tensor representations are created for efficient training using PyTorch's `DataLoader`.
 4. **Class Balancing**: The dataset contains an imbalanced number of positive (disease-associated) and negative SNPs, so **weight adjustments** may be applied.
+
+
+---
+
+## Update Notes
+Additional scripts and model checkpoints have been included in the `compare/` directory to support reproducibility of the MDD vs. MA evaluations and baseline/transfer comparisons. These updates do not affect the core usage of the repository.
