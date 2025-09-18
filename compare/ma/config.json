@@ -1,0 +1,30 @@
+{
+  "feature_cols": [
+    "chr",
+    "bpos",
+    "2016_beta",
+    "2016_se",
+    "2016_pval",
+    "2016_n",
+    "sqtl",
+    "sc-eqtl",
+    "brain_eQTL",
+    "all_eQTL",
+    "mQTL",
+    "OCRs_brain",
+    "OCRs_adult",
+    "footprints",
+    "encode",
+    "targetScanS.wgRna",
+    "tfbsConsSites",
+    "genomicSuperDups",
+    "reported in previous GWAS",
+    "ldscore",
+    "freq",
+    "ALL_pred"
+  ],
+  "label_col": "label",
+  "threshold": 0.9,
+  "locus_window_bp": 250000,
+  "notes": "MA dataset; ±250 kb window approximates LD clumping for locus-level evaluation."
+}

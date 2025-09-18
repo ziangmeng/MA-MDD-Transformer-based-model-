@@ -1,0 +1,10 @@
+{
+  "input_dim": 22,
+  "transformer": {
+    "num_heads": 4,
+    "num_layers": 2,
+    "hidden_dim": 64
+  },
+  "threshold": 0.9,
+  "ece_bins": 20
+}
