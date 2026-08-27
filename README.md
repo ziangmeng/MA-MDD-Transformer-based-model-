@@ -19,6 +19,26 @@ Make sure you have the following Python libraries installed:
 ## Running the Scripts
 Execute the scripts in the following order:
 > ⚠️ **Important:** The model architecture parameters (`--num_heads`, `--num_layers`, `--hidden_dim`) **must be the same** as those used during training (`1_train_model.py`) ,transfer learning (`2_transform_learning_model.py`)and inference(`3_inference.py`), otherwise the model will fail to load or behave inconsistently.
+
+### Configurable training options
+
+- `--use-transfer-learning` initializes a target-trait model from a compatible
+  pretrained checkpoint. It is enabled by default in
+  `2_transform_learning_model.py` and disabled by default in the baseline
+  workflow. Use `--no-use-transfer-learning` in the transfer-learning script to
+  train on the target data without pretrained initialization.
+- `--use-feature-attention` enables an additional feature-token attention
+  branch for statistical and functional annotations. It is disabled by default
+  to preserve compatibility with existing workflows and checkpoints. Pass the
+  same option at inference time when loading a checkpoint trained with this
+  branch enabled.
+- `--use-positional-encoding` adds fixed sinusoidal positional encodings to the
+  ordered feature tokens. It is disabled by default and requires
+  `--use-feature-attention`.
+
+When feature attention is enabled together with transfer learning, existing
+compatible checkpoints initialize the original prediction path while the
+optional branch starts from its own initialized parameters.
 1. **Train the initial model on MDD data**
 
 | Argument        | Description                                                    | Default                   |

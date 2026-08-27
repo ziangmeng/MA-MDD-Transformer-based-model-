@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 import argparse
 import os
+from model_options import TransformerClassifier, load_compatible_state_dict
 
 # -------------------- Argument Parser --------------------
 parser = argparse.ArgumentParser(description='Run inference using the fine-tuned Transformer model')
@@ -16,29 +17,14 @@ parser.add_argument('--threshold', type=float, default=0.999, help='Prediction t
 parser.add_argument('--num_heads', type=int, default=4, help='Number of Transformer attention heads (must match training)')
 parser.add_argument('--num_layers', type=int, default=2, help='Number of Transformer encoder layers (must match training)')
 parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of Transformer (must match training)')
+parser.add_argument('--use-feature-attention', action='store_true', default=False,
+                    help='Use a checkpoint trained with the optional feature-token attention branch')
+parser.add_argument('--use-positional-encoding', action='store_true', default=False,
+                    help='Add fixed positional encoding to feature tokens')
 
 args = parser.parse_args()
-
-# -------------------- Define Transformer Model --------------------
-class TransformerClassifier(nn.Module):
-    def __init__(self, input_dim, num_heads, num_layers, hidden_dim, output_dim=1):
-        super(TransformerClassifier, self).__init__()
-        self.input_mapping = nn.Linear(input_dim, 20)
-        self.transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=20, nhead=num_heads, dim_feedforward=hidden_dim),
-            num_layers=num_layers
-        )
-        self.fc = nn.Linear(20, output_dim)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.input_mapping(x)
-        x = x.permute(1, 0, 2)
-        x = self.transformer(x)
-        x = x[0, :, :]
-        x = self.fc(x)
-        x = self.sigmoid(x)
-        return x
+if args.use_positional_encoding and not args.use_feature_attention:
+    parser.error('--use-positional-encoding requires --use-feature-attention')
 
 # -------------------- Load Inference Data --------------------
 data = pd.read_csv(args.inference_data_path, sep='\t')
@@ -58,10 +44,12 @@ input_dim = X_tensor.shape[1]
 model = TransformerClassifier(input_dim=input_dim,
                               num_heads=args.num_heads,
                               num_layers=args.num_layers,
-                              hidden_dim=args.hidden_dim)
+                              hidden_dim=args.hidden_dim,
+                              use_feature_attention=args.use_feature_attention,
+                              use_positional_encoding=args.use_positional_encoding)
 
-model.load_state_dict(torch.load(args.model_path))
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+load_compatible_state_dict(model, args.model_path, map_location=device)
 model = model.to(device)
 model.eval()
 

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import argparse
 import os
+from model_options import TransformerClassifier
 
 # -------------------- Argument Parser --------------------
 parser = argparse.ArgumentParser(description='Train Transformer on MDD dataset')
@@ -19,8 +20,14 @@ parser.add_argument('--num_heads', type=int, default=4, help='Number of attentio
 parser.add_argument('--num_layers', type=int, default=2, help='Number of Transformer layers')
 parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of feedforward layer')
 parser.add_argument('--output_path', type=str, default='model/MDD_model.pth', help='Path to save model')
+parser.add_argument('--use-feature-attention', action='store_true', default=False,
+                    help='Enable the optional feature-token attention branch')
+parser.add_argument('--use-positional-encoding', action='store_true', default=False,
+                    help='Add fixed positional encoding to feature tokens')
 
 args = parser.parse_args()
+if args.use_positional_encoding and not args.use_feature_attention:
+    parser.error('--use-positional-encoding requires --use-feature-attention')
 
 # -------------------- Load and Preprocess Data --------------------
 final_training_set_mdd = pd.read_csv(args.data_path, sep='\t')
@@ -48,32 +55,13 @@ train_dataset_mdd, val_dataset_mdd = random_split(dataset_mdd, [train_size_mdd, 
 train_loader_mdd = DataLoader(train_dataset_mdd, batch_size=args.batch_size, shuffle=True)
 val_loader_mdd = DataLoader(val_dataset_mdd, batch_size=args.batch_size, shuffle=False)
 
-# -------------------- Define Model --------------------
-class TransformerClassifier(nn.Module):
-    def __init__(self, input_dim, num_heads, num_layers, hidden_dim, output_dim=1):
-        super(TransformerClassifier, self).__init__()
-        self.input_mapping = nn.Linear(input_dim, 20)
-        self.transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=20, nhead=num_heads, dim_feedforward=hidden_dim),
-            num_layers=num_layers
-        )
-        self.fc = nn.Linear(20, output_dim)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.input_mapping(x)
-        x = x.permute(1, 0, 2)
-        x = self.transformer(x)
-        x = x[0, :, :]
-        x = self.fc(x)
-        x = self.sigmoid(x)
-        return x
-
 input_dim_mdd = features_scaled_mdd.shape[1]
 model = TransformerClassifier(input_dim=input_dim_mdd,
                               num_heads=args.num_heads,
                               num_layers=args.num_layers,
-                              hidden_dim=args.hidden_dim)
+                              hidden_dim=args.hidden_dim,
+                              use_feature_attention=args.use_feature_attention,
+                              use_positional_encoding=args.use_positional_encoding)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = model.to(device)

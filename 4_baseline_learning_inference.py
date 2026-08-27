@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 import argparse
 import os
+from model_options import TransformerClassifier, load_compatible_state_dict
 
 # ============ Argument Parser ============
 parser = argparse.ArgumentParser(description='Train baseline Transformer model and perform inference (no pretraining)')
@@ -21,29 +22,18 @@ parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension
 parser.add_argument('--threshold', type=float, default=0.999, help='Threshold for inference classification')
 parser.add_argument('--model_path', type=str, default='model/MA_baseline.pth', help='Path to save trained baseline model')
 parser.add_argument('--output_file', type=str, default='Predicted_SNPs_Baseline.txt', help='Path to save inference results')
+parser.add_argument('--pretrained_model_path', type=str, default='model/MDD_model.pth',
+                    help='Checkpoint used when --use-transfer-learning is enabled')
+parser.add_argument('--use-transfer-learning', action='store_true', default=False,
+                    help='Initialize from a compatible pretrained checkpoint')
+parser.add_argument('--use-feature-attention', action='store_true', default=False,
+                    help='Enable the optional feature-token attention branch')
+parser.add_argument('--use-positional-encoding', action='store_true', default=False,
+                    help='Add fixed positional encoding to feature tokens')
 
 args = parser.parse_args()
-
-# ============ Define Transformer Classifier ============
-class TransformerClassifier(nn.Module):
-    def __init__(self, input_dim, num_heads, num_layers, hidden_dim, output_dim=1):
-        super(TransformerClassifier, self).__init__()
-        self.input_mapping = nn.Linear(input_dim, 20)
-        self.transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=20, nhead=num_heads, dim_feedforward=hidden_dim),
-            num_layers=num_layers
-        )
-        self.fc = nn.Linear(20, output_dim)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.input_mapping(x)
-        x = x.permute(1, 0, 2)
-        x = self.transformer(x)
-        x = x[0, :, :]
-        x = self.fc(x)
-        x = self.sigmoid(x)
-        return x
+if args.use_positional_encoding and not args.use_feature_attention:
+    parser.error('--use-positional-encoding requires --use-feature-attention')
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -77,12 +67,18 @@ val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 model = TransformerClassifier(input_dim=X.shape[1],
                               num_heads=args.num_heads,
                               num_layers=args.num_layers,
-                              hidden_dim=args.hidden_dim).to(device)
+                              hidden_dim=args.hidden_dim,
+                              use_feature_attention=args.use_feature_attention,
+                              use_positional_encoding=args.use_positional_encoding)
+if args.use_transfer_learning:
+    load_compatible_state_dict(model, args.pretrained_model_path, map_location=device)
+model = model.to(device)
 
 criterion = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-print("Training baseline model (no pretraining)...")
+print("Training with pretrained initialization..." if args.use_transfer_learning
+      else "Training baseline model (no pretraining)...")
 for epoch in range(args.num_epochs):
     model.train()
     total_loss = 0
